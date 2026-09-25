@@ -1,0 +1,15 @@
+[
+  {"query": "ask codex what it thinks of the retry logic in src/http/client.ts", "should_trigger": true},
+  {"query": "get a second opinion from codex on whether my locking refactor is race-free", "should_trigger": true},
+  {"query": "have codex review my staged diff before I commit", "should_trigger": true},
+  {"query": "run codex exec over the parser changes and tell me if the logic is sound", "should_trigger": true},
+  {"query": "codex just hangs forever whenever you call it from the bash tool, sort that out", "should_trigger": true},
+  {"query": "i want a fresh pair of eyes on this algorithm - shell out to the openai cli and see what it says", "should_trigger": true},
+  {"query": "get codex astra high to sketch two layout options for this widget", "should_trigger": true},
+  {"query": "open the interactive codex TUI so I can chat with it myself in the terminal", "should_trigger": false},
+  {"query": "review this PR for correctness and style", "should_trigger": false},
+  {"query": "what does the `codex` column mean in this legacy MARC bibliographic record", "should_trigger": false},
+  {"query": "set up a cron job that runs my npm test suite every morning", "should_trigger": false},
+  {"query": "summarize what this repository does at a high level", "should_trigger": false},
+  {"query": "install the codex cli and log me in", "should_trigger": false}
+]

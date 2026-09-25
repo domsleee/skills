@@ -1,0 +1,157 @@
+{
+  "skill_name": "claude",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Get a claude second opinion on whether the error handling in src/auth.ts is correct. Read-only analysis, no edits.",
+      "expected_output": "Runs `claude -p \"PROMPT\" --model claude-opus-5-5 --effort xhigh --tools Read,Grep,Glob < /dev/null` with the streaming flags from SKILL.md and the prompt directly after `-p`. Requests `sandbox_permissions: \"require_escalated\"` when policy allows; if escalation is forbidden or rejected, reports that claude can't run inside the Codex sandbox instead of relaying `Not logged in` as an auth problem or as Claude's verdict.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses `claude -p` (not bare `claude`, which opens the interactive TUI)", "type": "model"},
+        {"text": "Passes `--model claude-opus-5-5`", "type": "model"},
+        {"text": "Passes `--effort xhigh`", "type": "model"},
+        {"text": "Restricts Claude to read-only tools (`--tools Read,Grep,Glob`)", "type": "model"},
+        {"text": "The prompt comes directly after `-p`, not after a variadic flag like `--tools`", "type": "model"},
+        {"text": "Policy-conditional: requests `sandbox_permissions: \"require_escalated\"` when escalation is allowed; when it is forbidden or rejected, reports a sandbox block, not an auth problem and not Claude's verdict", "type": "model"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Have claude review my current git diff for bugs and give me its findings.",
+      "expected_output": "Pipes the diff in: `git diff | claude -p \"Review this diff (on stdin) for bugs.\" --model claude-opus-5-5 --effort xhigh --tools Read,Grep,Glob`, with no `< /dev/null`. Does not ask Claude to run `git diff` itself.",
+      "files": [],
+      "assertions": [
+        {"text": "Pipes `git diff` into `claude -p` with instructions in the prompt argument", "type": "model"},
+        {"text": "Does NOT add `< /dev/null` to the piped command (bash would drop the diff)", "type": "model"},
+        {"text": "Does NOT rely on Claude running `git diff` itself", "type": "model"},
+        {"text": "Uses `--model claude-opus-5-5` and `--effort xhigh`", "type": "model"},
+        {"text": "Policy-conditional: when sandboxed, runs via `require_escalated` (moot under `danger-full-access`)", "type": "model"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "When you call claude it just prints `Not logged in · Please run /login`, but I'm definitely logged in - `claude` works fine in my terminal. What's going on?",
+      "expected_output": "Diagnoses the Codex sandbox: sandboxed, claude can't reach its credentials or the network. Fix: rerun with `sandbox_permissions: \"require_escalated\"`. Not a real logout, so no `/login` needed.",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies the Codex sandbox as the cause (claude cannot reach credentials/network when sandboxed)", "type": "model"},
+        {"text": "Gives a fix that runs claude outside the sandbox (approve escalation / `require_escalated`, or `-s danger-full-access`)", "type": "model"},
+        {"text": "Does NOT tell the user to log in again or re-authenticate", "type": "model"}
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Ask claude, using fable, whether avg() in math.js handles an empty array.",
+      "expected_output": "Uses `--model fable --effort xhigh` because the user asked. Claude can see math.js (Read tool or piped content). On `You've reached your Fable limit`, ends with \"Fable limit reached — rerun with Opus 5.5?\" instead of switching silently.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses `--model fable` (the user asked for Fable)", "type": "model"},
+        {"text": "Keeps `--effort xhigh`", "type": "model"},
+        {"text": "Claude can actually see math.js: `--tools Read,Grep,Glob` or the file piped on stdin (not `--tools \"\"` with nothing piped)", "type": "model"},
+        {"text": "On a Fable limit error, offers Opus 5.5 rather than silently answering with another model", "type": "model"}
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "My script runs `claude -p --tools Read,Grep,Glob \"review src/\"` and fails with `Error: Input must be provided either through stdin or as a prompt argument when using --print`. Why?",
+      "expected_output": "`--tools` is variadic and swallowed the prompt. Fix: prompt immediately after `-p`: `claude -p \"review src/\" --tools Read,Grep,Glob`.",
+      "files": [],
+      "assertions": [
+        {"text": "Explains that `--tools` consumed the prompt", "type": "model"},
+        {"text": "Fix puts the prompt directly after `-p`, before variadic flags", "type": "model"}
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Pass my long design doc (design.md) to claude and ask it to poke holes in the approach.",
+      "expected_output": "`cat design.md | claude -p \"Poke holes in this design.\" --model claude-opus-5-5 --effort xhigh --tools Read,Grep,Glob`, with no `< /dev/null`. Instructions in the argument, doc on stdin.",
+      "files": [],
+      "assertions": [
+        {"text": "Pipes design.md on stdin (or has Claude Read it) with instructions in the prompt argument", "type": "model"},
+        {"text": "Does NOT add `< /dev/null` to a piped command", "type": "model"},
+        {"text": "Uses `--model claude-opus-5-5` and `--effort xhigh`", "type": "model"}
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Use claude to review my changes against the main branch before I raise the PR, focusing on auth and error handling.",
+      "expected_output": "`git diff main... | claude -p \"Review this branch diff; focus on auth and error handling.\" --model claude-opus-5-5 --effort xhigh --tools Read,Grep,Glob`, with the streaming flags from SKILL.md and no `< /dev/null`. Requires Claude's exit code 0 and a successful final result with a nonempty answer.",
+      "files": [],
+      "assertions": [
+        {"text": "Pipes `git diff main...` (or equivalent branch diff) into `claude -p`", "type": "model"},
+        {"text": "The focus instructions are in the prompt argument", "type": "model"},
+        {"text": "Does NOT add `< /dev/null` to the piped command", "type": "model"},
+        {"text": "Uses `--model claude-opus-5-5` and `--effort xhigh`", "type": "model"}
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Ask claude whether avg() in math.js is correct. (Run unsandboxed, with claude genuinely logged out.)",
+      "expected_output": "Claude prints `Not logged in · Please run /login` even though it ran unsandboxed. That is a real logout: tells the user to log in to Claude Code, and does not blame the sandbox.",
+      "files": [],
+      "assertions": [
+        {"text": "Recognizes an unsandboxed `Not logged in` as a real logout", "type": "model"},
+        {"text": "Tells the user to log in to Claude Code (e.g. run `claude` then `/login`, or `claude auth login`)", "type": "model"},
+        {"text": "Does NOT blame the Codex sandbox", "type": "model"}
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Ask claude opus to review the full diff of this branch and give me its findings. (The stream may have quiet periods lasting several minutes.)",
+      "expected_output": "Enables streaming, then waits on the existing execution session through any quiet periods. Uses long waits (write_stdin with yield_time_ms: 60000) and separate short reads of complete log lines between waits, rather than short polls plus sleeps. Does not relaunch, kill, or change settings solely because of silence, and does not report a review before a successful final result and process exit.",
+      "files": [],
+      "assertions": [
+        {"text": "Enables --output-format stream-json --verbose --include-partial-messages, retains the full stream, and reads complete log lines between session waits to show compact progress", "type": "model"},
+        {"text": "Launches claude once; does not relaunch or kill the process while the session is still alive", "type": "model"},
+        {"text": "Waits with a single long wait on the existing session (e.g. `write_stdin(session_id, chars: \"\", yield_time_ms: 60000)`), not repeated short polls interleaved with sleeps", "type": "model"},
+        {"text": "Does NOT describe the silence as a hang, a stall, or a failure while the session is running", "type": "model"},
+        {"text": "Does NOT report empty output from a still-running session as \"no findings\"", "type": "model"},
+        {"text": "Does not narrate every empty poll back to the user", "type": "model"},
+        {"text": "Waits for Claude to exit successfully and return a successful final result with a nonempty answer before reporting the review", "type": "model"}
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "I ran `git diff | claude -p \"Review this diff.\" --model opus --effort xhigh --tools Read,Grep,Glob` and it exited after about 20 seconds having printed nothing at all. What did Claude find?",
+      "expected_output": "Treats an exited process with no output as a failed invocation, not a clean review. Says the call failed and retries or reports the failure; does not answer with \"Claude found no issues\". Distinguishes this from silence during a session that is still running.",
+      "files": [],
+      "assertions": [
+        {"text": "Treats a process that has exited with no output as a failed invocation", "type": "model"},
+        {"text": "Does NOT present \"no findings\" or \"Claude found nothing\" as Claude's verdict", "type": "model"},
+        {"text": "Distinguishes exited-and-empty (failure) from silent-but-running (normal)", "type": "model"},
+        {"text": "Retries the call or reports the failure to the user rather than proceeding as if reviewed", "type": "model"}
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Claude is still running. Its stream reports system/thinking_tokens with estimated_tokens increasing from 1200 to 1500, but every thinking_delta has empty text and there is no answer text. Should we kill it or change the model?",
+      "expected_output": "Recognizes the increasing estimates as observed activity, continues the same run, and gives a brief progress update without promising completion. Empty thinking text does not mean a failed review.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses the increasing thinking-token estimate as evidence of activity despite empty thinking text", "type": "model"},
+        {"text": "Keeps the existing process and chosen model/effort despite the lack of answer text", "type": "model"},
+        {"text": "Does not claim that progress guarantees completion or a successful review", "type": "model"}
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "A streamed Claude review emitted system/init, several thinking_tokens events, and partial answer text saying it is checking the diff. The process then exited 0 without a result event. Can we report the review as clean?",
+      "expected_output": "Reports an incomplete or failed review, since process exit 0 and partial/progress events do not substitute for a successful final result with an answer.",
+      "files": [],
+      "assertions": [
+        {"text": "Rejects a clean-review conclusion because the final result event is missing", "type": "model"},
+        {"text": "Does not present startup events or partial answer text as the completed review", "type": "model"}
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "The Claude stream includes partial text, a complete assistant message, and a final result that repeat the same review. It exited 0 with subtype success, is_error false, and a nonempty result. How should you return the review?",
+      "expected_output": "Returns the answer from the final result once, without concatenating the repeated streaming and assistant text.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses the successful final result as the completed review", "type": "model"},
+        {"text": "Does not duplicate the answer by joining partial text, assistant messages, and result", "type": "model"}
+      ]
+    }
+  ]
+}

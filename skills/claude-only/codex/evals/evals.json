@@ -1,0 +1,115 @@
+{
+  "skill_name": "codex",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Get a codex second opinion on whether the error handling in src/auth.ts is correct. I just want its read-only analysis, not edits.",
+      "expected_output": "Runs `codex exec` with a CLOSED stdin (content piped with instructions as the argument and no `-`, or arg prompt plus `< /dev/null`) so it cannot deadlock, read-only sandbox, gpt-6-sol at high effort, run in the background. Does not use bare `codex` and does not pass `-a`.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses `codex exec` (not bare `codex`)", "type": "model"},
+        {"text": "Closes/redirects stdin to avoid the deadlock: content piped with instructions as the argument and no `-`, OR arg prompt with `< /dev/null` (bash) / `< NUL` via `cmd /c` (PowerShell)", "type": "model"},
+        {"text": "Uses read-only sandbox so codex cannot edit files", "type": "model"},
+        {"text": "Uses gpt-6-sol at high effort via `-m gpt-6-sol -c model_reasoning_effort=\"high\"`", "type": "model"},
+        {"text": "Does NOT pass `-a`/`--ask-for-approval` to `codex exec`", "type": "model"},
+        {"text": "Runs codex in the background rather than blocking on it", "type": "model"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Have codex review my current git diff for bugs and give me its findings.",
+      "expected_output": "Pipes `git diff` into `codex exec ... \"Review this diff for bugs.\"` (no `-`), OR uses an arg prompt plus `< /dev/null`, OR runs `codex exec review < /dev/null` — i.e. stdin is closed so it can't hang. Read-only sandbox, gpt-6-sol high, background. No `-a` flag.",
+      "files": [],
+      "assertions": [
+        {"text": "Uses `codex exec` (e.g. piping `git diff` into `codex exec ... \"Review this diff for bugs.\"` with no `-`, an arg prompt plus `< /dev/null`, or `codex exec review`)", "type": "model"},
+        {"text": "Ensures stdin is closed/piped so the call cannot deadlock (content piped with instructions as the argument and no `-`, or `< /dev/null` for an arg prompt or `codex exec review`)", "type": "model"},
+        {"text": "Uses gpt-6-sol at high reasoning effort for the review", "type": "model"},
+        {"text": "Does not pass an invalid `-a` flag", "type": "model"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Every time I have you call codex it just hangs and never comes back, even though I passed the prompt as a normal argument like `codex exec \"review this\"`. It's not the TUI - I'm using exec. What's going on and how do I make it reliable?",
+      "expected_output": "Diagnoses the stdin EOF deadlock: codex exec inherits an open-but-silent stdin from the parent (Claude Code's shell), a non-interactive child shell, and blocks on read() waiting for an EOF that never arrives — the prompt being a positional argument does not prevent this. Fix: close stdin — pipe the prompt (`echo \"review this\" | codex exec -`) or redirect (`codex exec \"review this\" < /dev/null`). Kill leftover hung codex processes before retrying.",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies the stdin EOF deadlock as the cause (codex exec waits on an inherited, never-closed stdin from the non-interactive parent shell)", "type": "model"},
+        {"text": "Explicitly notes that passing the prompt as an argument does NOT avoid the hang", "type": "model"},
+        {"text": "Gives a concrete fix that closes stdin: pipe via `| codex exec -` and/or redirect `< /dev/null` (or `< NUL`)", "type": "model"},
+        {"text": "Does NOT misdiagnose it as the interactive TUI (the user already uses exec) or as an approval/`-a` issue", "type": "model"},
+        {"text": "Mentions killing any leftover hung `codex` process before retrying", "type": "model"}
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Pass my long design doc (design.md) to codex as the prompt and ask it to poke holes in the approach. The doc is big.",
+      "expected_output": "Pipes the file via stdin with instructions as the argument (`cat design.md | codex exec ... \"Poke holes in this design (on stdin).\"`, no `-`), which both delivers the doc and closes stdin (no deadlock). Read-only sandbox, gpt-6-sol high, background.",
+      "files": [],
+      "assertions": [
+        {"text": "Feeds the large doc to codex via a stdin pipe with instructions as the argument (e.g. `cat design.md | codex exec ... \"Poke holes in this design (on stdin).\"`, no `-`)", "type": "model"},
+        {"text": "Uses `codex exec` with read-only sandbox", "type": "model"},
+        {"text": "Uses gpt-6-sol at high reasoning effort", "type": "model"},
+        {"text": "The chosen invocation inherently closes stdin (the pipe), so it cannot deadlock", "type": "model"}
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "My script calls `codex \"summarize this repo\"` and it hangs forever.",
+      "expected_output": "Two problems: (1) bare `codex` opens the interactive TUI — must use `codex exec`; (2) even with exec, stdin must be closed to avoid the deadlock. Fix: `echo \"summarize this repo\" | codex exec -` or `codex exec \"summarize this repo\" < /dev/null`.",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies that bare `codex` launches the interactive TUI and recommends `codex exec`", "type": "model"},
+        {"text": "Also ensures stdin is closed (pipe or `< /dev/null`) so the exec form does not deadlock either", "type": "model"}
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Use codex to review my changes against the main branch before I raise the PR.",
+      "expected_output": "Uses `codex exec review --base main` with stdin closed (`< /dev/null`), gpt-6-sol at high effort, run in background, captured with `-o` and checked non-empty. Does not use a bare `codex` TUI form and does not leave stdin open (which is the exact call that hangs).",
+      "files": [],
+      "assertions": [
+        {"text": "Uses the built-in reviewer `codex exec review` with `--base main` to scope the diff", "type": "model"},
+        {"text": "Closes stdin with `< /dev/null` (or pipes) — this is the call that hangs if stdin is left open", "type": "model"},
+        {"text": "Uses gpt-6-sol at high reasoning effort", "type": "model"},
+        {"text": "Captures output and treats empty output as a retry, not a clean review", "type": "model"}
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Use codex to review my changes against the main branch, and tell it to focus specifically on the auth and error-handling code.",
+      "expected_output": "Must NOT combine `review --base main` with a custom-instructions PROMPT — codex 0.140.0 errors `the argument '--base <BRANCH>' cannot be used with '[PROMPT]'` (piping with `-` fails identically). Correct options: scoped review with no prompt (`review --base main < /dev/null`), OR custom instructions without `--base` (`review \"focus on auth...\" < /dev/null`), OR pipe the diff explicitly (`git diff main... | codex exec \"Review this diff: focus on auth\"` style). Stdin redirected from `/dev/null` for arg-only calls; the diff pipe closes stdin itself.",
+      "files": [],
+      "assertions": [
+        {"text": "Does NOT pass both `--base` (or `--uncommitted`/`--commit`) AND a custom-instructions prompt to `codex exec review` — that combination errors", "type": "model"},
+        {"text": "Picks a valid alternative: scope-only review, OR custom instructions without a scope flag, OR piping the diff into a plain `codex exec` review prompt", "type": "model"},
+        {"text": "Keeps stdin closed (`< /dev/null` or a closing pipe) so the call cannot deadlock", "type": "model"},
+        {"text": "Uses gpt-6-sol at high reasoning effort", "type": "model"}
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Ask codex astra whether the caching layer in src/cache.rs can serve stale entries after an invalidation.",
+      "expected_output": "Uses the astra model by its full ID `-m gpt-6-astra` with astra's default effort `-c model_reasoning_effort=\"medium\"` (not sol's high). Otherwise the normal call: `codex exec`, read-only sandbox, stdin closed, run in the background. Does not need to look the model name up in ~/.codex/config.toml.",
+      "files": [],
+      "assertions": [
+        {"text": "Passes the full model ID `-m gpt-6-astra` (not `astra`, not gpt-6-sol, and not omitting `-m`)", "type": "model"},
+        {"text": "Uses medium reasoning effort via `-c model_reasoning_effort=\"medium\"`", "type": "model"},
+        {"text": "Uses `codex exec` with read-only sandbox and stdin closed (`< /dev/null` or a pipe)", "type": "model"},
+        {"text": "Does not run `codex --version` or grep ~/.codex/config.toml to discover the astra model name", "type": "model"}
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "get /codex astra high to help. We need one widget layout for plans and one for all dollars.",
+      "expected_output": "The user named both a model and an effort: `-m gpt-6-astra -c model_reasoning_effort=\"high\"`. The named effort overrides astra's medium default. Stdin closed, background. Because Codex is producing files, `-s workspace-write` in a scratch dir (`-C <dir>`) is acceptable here.",
+      "files": [],
+      "assertions": [
+        {"text": "Passes the full model ID `-m gpt-6-astra`", "type": "model"},
+        {"text": "Uses the user's named effort `-c model_reasoning_effort=\"high\"` (not astra's medium default, not xhigh)", "type": "model"},
+        {"text": "Uses `codex exec` with stdin closed so it cannot deadlock", "type": "model"},
+        {"text": "If it attaches mockups with `-i`, puts `--` before the prompt (otherwise `-i` swallows the prompt and codex exits 1 with `No prompt provided via stdin.`)", "type": "model"},
+        {"text": "Does not run `codex --version` or grep ~/.codex/config.toml to discover the astra model name", "type": "model"}
+      ]
+    }
+  ]
+}
